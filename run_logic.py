@@ -14,6 +14,7 @@ class KilnOperationServer:
 		initime = time.time()
 		self.log = {'init_time':initime}
 		self.env = EnvModel(**kwargs)
+		self.lock_active = False # set true while FiringPlan is Active.
 		try:
 			with open(cmd_bank) as cbank:
 				self.cmd_bank = json.loads(cbank.read())
@@ -24,7 +25,7 @@ class KilnOperationServer:
 		if source == 'stdin':
 			return input("enter command: ")
 		else:
-			return 'NULL' # device input not yet implemented
+			raise NotImplemented # device input not yet implemented
 
 	def _run(self):
 		cmd = 'INIT'

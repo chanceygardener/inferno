@@ -38,11 +38,7 @@ class EnvModel:
 		raise NotImplemented
 
 	def calculateNextPulseWidth(self, error):
-
-
-# class Pulse:
-# 	def __init__(self, start, stop, stage):
-# 		self.start, 
+		raise NotImplemented
 
 
 
@@ -55,20 +51,29 @@ class rampHoldStage:
 		self.stop_at = stop_at
 		self.hold_time = hold_time
 		self.plan = plan
-		self.ideal_dt = self.ramp_rate / (self.plan.pwm._full_pulse * SECONDS_IN_HOUR)
+		self.ideal_pulse_dt = self.ramp_rate / 
+						(self.plan.pwm._full_pulse * SECONDS_IN_HOUR)
+		self._pulse_plan = self._planByPulse()
 
-	def evaluateSinglePulse(self, t1, t2):
+	def evaluateSinglePulse(self, idx, actual):
 		'''evaluates the error between the actual
 		delta in temperature and the rampHoldStage's
-		prescribed one'''
-		actual_delta = (t2 - t1)/FULL_PULSE_IN_SECONDS
+		prescribed one
+		param -- idx: index of pulse_plan to compare against
+		actual -- temperature value read from thermocouple'''
+		err = 
+		
 
 	def _planByPulse(self):
+		pulse_plan = []
 		hours = (self.stop_at - self.start_at) / self.ramp_rate  
-		
-		pulse_count = math.ceil(est_time/(SECONDS_IN_HOUR / self.plan.pwm._full_pulse)
+		pulse_count = math.ceil(hours * (SECONDS_IN_HOUR / self.plan.pwm._full_pulse))
 		for p in range(len(pulse_count)):
-			temp_span = ()
+			steps_from_stage_init = p * self.ideal_pulse_dt
+			pulse_start = self.start_at + steps_from_stage_init
+			temp_span = (pulse_start, pulse_start+self.ideal_pulse_dt)
+			pulse_plan.append(temp_span)
+		return pulse_plan
 
 
 
