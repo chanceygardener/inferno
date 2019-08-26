@@ -1,0 +1,7 @@
+{
+	"atm_temp": 288.15, 
+	"atm_pressure": 1.0, 
+	"voltage": 220.0, 
+	"molar_mass_air": 28.97,
+	"element_resistance": 16.5
+}
