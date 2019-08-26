@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import warnings
+import ABC
 import logging
 import math
 import json
@@ -16,16 +17,29 @@ SECONDS_IN_HOUR = 3600
 SSR_PIN = 16  # not sure about that one yet
 
 
+class KilnState(ABC):
+	def __init__(self, host, name=None):
+		self.host = host
+		self.state_name = self._nameMe(state_name=name)
+		self._buildLoggerAtHost()
+
+	def _nameMe(self, state_name):
+		raise NotImplemented
+
+	def _buildLoggerAtHost(self):
+		self.host[self.__name__] = logging.getLogger(self.__name__)
+
+
 class EnvModel:
     '''A kiln element will lose efficacy as resistance increases with wear
      according to Power (joules) = voltage **2 / resistance '''
 
     def __init__(self, **kwargs):
         self.gas_const = GAS_CONST
-        #warnings.warn("Environment model initiated with all 0 values")
+        # warnings.warn("Environment model initiated with all 0 values")
         self.res = element_resistance  # resistance
         self.volt = voltage  # voltage
-        self.log = {'error': []'warning': []}
+        self.log = {}
 
     def _heatInJoules(self):
         return self.volt**2 / self.res
@@ -47,7 +61,7 @@ class EnvModel:
 
 
 class rampHoldStage:
-    '''ramp hold stage holds segment of PLAN, 
+    '''ramp hold stage holds segment of PLAN,
     which ENV inference methods try to fit'''
 
     def __init__(self, ramp_rate, unit, start_at, stop_at, hold_time, plan):
@@ -92,16 +106,22 @@ class rampHoldStage:
         return pulse_plan
 
 
-class FiringPlan:
-    def __init__(self, stages, temp_unit, host):
+class IdleState(KilnState):
+	def __init__(self, host, name=None):
+		KilnState.__init__(self, host, state_name=name)
+
+
+class FiringPlan(KilnState):
+    def __init__(self, stages, temp_unit, host, program_name=None):
+    	KilnState.__init__(self, host=host)
         self.host = host
+        self.log = logging.getLogger()
         self.pwm = PulseWidthModulator(SSR_PIN)
         self.model = EnvModel()
         self.tc = tcdriver()
         self.temp_unit = temp_unit
         self.plan = []
         self.errlog = {}
-        self.sequence = stages
         self.active = False
         stages_or_err = self._readStageData(stages)
         if isinstance(stages_or_err, json.decoder.JSONDecodeError):
@@ -109,6 +129,7 @@ class FiringPlan:
             self.__exit__()
         else:
             self._compose(stages_or_err)
+        self._nameMe(state_name=program_name)
 
     def _readStageData(self, stages):
         try:
@@ -117,6 +138,18 @@ class FiringPlan:
             self.errlog['JSON_PARSE_ERR'] = e
             return e
         return stage_dat
+
+    def getPlanTarget(self):
+    	'''just returns the target temp'''
+    	return self.plan[-1].stop_at
+
+    def _nameMe(self, state_name=None):
+    	if state_name is None:
+        	self.__name__ = "{}-stage program -> {} degrees {}".format(len(self.plan),
+        												self.getPlanTarget(),
+        												self.temp_unit)
+        else:
+        	self.__name__ = state_name
 
     def _getRequiredPulseWidthForTempDelta(current_temp, target_temp):
         # need this be joules per unit time? likely
@@ -140,7 +173,7 @@ class FiringPlan:
     	hold_start = time.time()
     	time_since = hold_start
     	while time_since < duration:
-    		# wait to cool below target 
+    		# wait to cool below target
     		# to re-initialize pulse sequence
     		while cur_temp >= at:
             	time.sleep(1)
