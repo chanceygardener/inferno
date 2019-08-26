@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 
 import warnings
+import logging
 import math
 import json
+import time
 from max31855 import MAX31855 as tcdriver
 from pulsewidth import PulseWidthModulator, FULL_PULSE_IN_SECONDS
 from utils import GAS_CONST, RAMP_RATE_DENOMINTATION_IN_SECONDS
@@ -57,7 +59,7 @@ class rampHoldStage:
         self.ideal_pulse_dt = self.ramp_rate /
         (self.plan.pwm._full_pulse * SECONDS_IN_HOUR)
         self._pulse_plan = self._planByPulse()
-
+        self._pulses_in_stage = len(self._pulse_plan)
 
     def getPulseStartError(self, idx, actual_start):
         '''evaluates the error between the actual
@@ -116,6 +118,12 @@ class FiringPlan:
             return e
         return stage_dat
 
+    def _getRequiredPulseWidthForTempDelta(current_temp, target_temp):
+        # need this be joules per unit time? likely
+        joules = self.host.env._getHeatCapacity(current_temp, target_temp)
+        pulse_width_in_seconds = joules/self._heatInJoules()
+        return pulse_width_in_seconds
+
     def _compose(self):
         initemp = self._readThermoCouple()
         for stage in self.sequence:
@@ -128,13 +136,45 @@ class FiringPlan:
             initemp = seg.stop_at
             self.plan.append(seg)
 
+    def _hold(self, at, duration):
+    	hold_start = time.time()
+    	time_since = hold_start
+    	while time_since < duration:
+    		# wait to cool below target 
+    		# to re-initialize pulse sequence
+    		while cur_temp >= at:
+            	time.sleep(1)
+            	cur_temp = self._readThermoCouple()
+        	pulse_width = self._getRequiredPulseWidthForTempDelta(cur_temp, at)
+        	self.pwm.set_active_time(pulse_width)
+            self.pwm.pulse()
+        	time_since = time.time()
+
+    def notifyHost(msg):
+    	self.host.receiveMessage(msg)
+
     def run(self):
         lock_status_or_error = self.host._requestLock()
         # begin executing from plan
         for seg in self.plan:
-            for pulse in seg._pulse_plan:
+            for i in range(seg._pulses_in_stage):
                 cur_temp = self._readThermoCouple()
-                seg._evaluatePulse()
+                pulse_end_target = seg.pulse_plan[i][1]
+                while cur_temp >= pulse_end_target:
+                    time.sleep(1)
+                    cur_temp = self._readThermoCouple()
+                pulse_width = self._getRequiredPulseWidthForTempDelta(cur_temp,
+                                                                      pulse_end_target)
+                self.pwm.set_active_time(pulse_width)
+            	self.pwm.pulse()
+            if seg.hold_time > 0:
+            	self._hold(seg._pulse_plan[i][1], seg.hold_time)
+        # conclude FiringPlan
+
+
+
+                
+
 
     def getRampHeatEnergy():
         raise NotImplemented

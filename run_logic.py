@@ -17,8 +17,8 @@ class KilnOperationServer:
         initime = time.time()
         self.log = {'init_time': initime}
         if test_env_params is None:
-            # TODO(chanceygardener): this will be sensor 
-            	# read data outside of certain tests
+            # TODO(chanceygardener): this will be sensor
+                # read data outside of certain tests
             raise NotImplemented
         else:
             self.env = EnvModel(kwargs=test_env_params)
