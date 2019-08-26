@@ -205,10 +205,6 @@ class FiringPlan(KilnState):
         # conclude FiringPlan
 
 
-
-                
-
-
     def getRampHeatEnergy():
         raise NotImplemented
 
