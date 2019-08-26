@@ -3,5 +3,6 @@
 	"atm_pressure": 1.0, 
 	"voltage": 220.0, 
 	"molar_mass_air": 28.97,
-	"element_resistance": 16.5
+	"element_resistance": 16.5,
+	"device_name" : "SIM_KILN"
 }
